@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>ECharts</title>
+  <style>
+    body,
+    html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #app {
+      overflow: hidden;
+      background: #fff;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link href="https://cdn.bootcss.com/normalize/8.0.0/normalize.min.css" rel="stylesheet">
+  <link href="https://cdn.bootcss.com/mapbox-gl/0.43.0/mapbox-gl.css" rel="stylesheet">
+</head>
+
+<body>
+  <div id="app">
+    <div id="map"></div>
+  </div>
+  <script src="https://cdn.bootcss.com/mapbox-gl/0.43.0/mapbox-gl.js" charset="utf-8"></script>
+  <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js" charset="utf-8"></script>
+  <!-- 引入 echarts.js -->
+  <script src="https://cdn.bootcss.com/echarts/4.0.4/echarts.min.js"></script>
+  <script src="./echarts-gl.min.js" charset="utf-8"></script>
+  <script type="text/javascript">
+    // mapbox TOKEN
+    mapboxgl.accessToken = 'pk.eyJ1IjoiamFzb25obyIsImEiOiJjamU1Yjh6YTAyeXczMnFwOTl1aGRwNnZmIn0.cSgyLOqrlhlNPPpZAtXO7g'
+    var myChart = echarts.init(document.getElementById("map"))
+    $.getJSON("map.geojson", function(buildingsGeoJSON) {
+      // 注册可用的地图
+      echarts.registerMap('buildings', buildingsGeoJSON)
+      // 地图区域的数据
+      var regionsData = buildingsGeoJSON.features.map(function(feature) {
+        return {
+          name: feature.properties.name,
+          value: Math.random(),
+          height: Math.random() * 1000,
+          label: feature.properties.name
+        };
+      })
+      $.getJSON("road.geojson", function(roadsJSON) {
+        // console.log(roadsJSON)
+        var taxiRoutes = roadsJSON.map(item => {
+          let coor = item.toString().split(/[_|]/)
+          return {
+            lineStyle: {},
+            coords: coor.map(i => i.split(','))
+          }
+        })
+        console.log(taxiRoutes)
+        var echartsOption = {
+          visualMap: {
+            show: false,
+            min: 0.4,
+            max: 1,
+            inRange: {
+              color: ['rgb(138, 43, 83)']
+            }
+          },
+          mapbox: {
+            center: [113.524173, 22.801624],
+            style: 'mapbox://styles/jasonho/cje7u4sylbj7f2sn31bxq55t6',
+            zoom: 13,
+            pitch: 100,
+            bearing: -10,
+            dragRotate: false,
+            trackResize: true,
+            attributionControl: false,
+            postEffect: {
+              enable: true,
+              SSAO: {
+                enable: true,
+                intensity: 1.3,
+                radius: 5
+              },
+              screenSpaceReflection: {
+                enable: false
+              }
+            },
+            groundPlane: {
+              show: true,
+              color: '#333'
+            },
+            light: {
+              main: {
+                intensity: 6,
+                shadow: true,
+                shadowQuality: 'high',
+                alpha: 30
+              },
+              ambient: {
+                intensity: 0
+              },
+              ambientCubemap: {
+                texture: './ambientCubemapTexture.hdr',
+                exposure: 2,
+                diffuseIntensity: 1,
+                specularIntensity: 2
+              }
+            }
+          },
+          // 系列列表
+          series: [{
+            type: 'lines3D',
+            coordinateSystem: 'mapbox',
+            effect: {
+              show: true,
+              constantSpeed: 5,
+              trailWidth: 2,
+              trailLength: 0.4,
+              trailOpacity: 1,
+              spotIntensity: 10
+            },
+            blendMode: 'lighter',
+            polyline: true,
+            lineStyle: {
+              width: 0.1,
+              color: 'rgb(1, 166, 192)',
+              opacity: 0.
+            },
+            data: taxiRoutes
+          }, {
+            type: 'map3D',
+            map: 'buildings', // registerMap注册
+            data: regionsData,
+            shading: 'realistic',
+            instancing: true,
+            // ====
+            coordinateSystem: 'mapbox',
+            silent: true,
+            realisticMaterial: {
+              metalness: 1,
+              roughness: 0.2,
+            },
+            groundPlane: {
+              show: true,
+              color: '#333'
+            },
+            boxWidth: 200,
+            boxHeight: 1,
+            viewControl: {
+              minBeta: -360,
+              maxBeta: 360,
+              autoRotate: true
+            },
+          }]
+        }
+        // 使用刚指定的配置项和数据显示图表
+        myChart.setOption(echartsOption)
+      })
+    })
+  </script>
+</body>
+
+</html>
