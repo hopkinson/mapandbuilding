@@ -782,16 +782,46 @@
     // ==========================================
     // 1. 全局配置与状态初始化
     // ==========================================
-    // 提示：请在下方填入你的 Mapbox 公钥 Access Token (可在 https://account.mapbox.com/ 免费获取)
-    const DEFAULT_MAPBOX_TOKEN = 'YOUR_MAPBOX_ACCESS_TOKEN';
-    const DEFAULT_MAPBOX_STYLE = 'mapbox://styles/jasonho/cje7u4sylbj7f2sn31bxq55t6';
+    // 免 Token 的深色开源底图 (CartoDB Dark)，无需注册账号即可开箱即用预览
+    const OPEN_DARK_STYLE = {
+      version: 8,
+      sources: {
+        'carto-dark': {
+          type: 'raster',
+          tiles: [
+            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+          ],
+          tileSize: 256
+        }
+      },
+      layers: [
+        {
+          id: 'carto-dark-layer',
+          type: 'raster',
+          source: 'carto-dark',
+          minzoom: 0,
+          maxzoom: 22
+        }
+      ]
+    };
 
-    const savedToken = localStorage.getItem('MAPBOX_TOKEN');
-    if (savedToken) {
-      mapboxgl.accessToken = savedToken;
-    } else if (DEFAULT_MAPBOX_TOKEN && DEFAULT_MAPBOX_TOKEN !== 'YOUR_MAPBOX_ACCESS_TOKEN') {
-      mapboxgl.accessToken = DEFAULT_MAPBOX_TOKEN;
+    // 默认 Mapbox 矢量底图样式 (如果填写了有效 Token 将优先使用此样式)
+    const DEFAULT_MAPBOX_STYLE = 'mapbox://styles/jasonho/cje7u4sylbj7f2sn31bxq55t6';
+    
+    // 支持从 URL 参数 (?token=...) 或 localStorage 获取 Token
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) {
+      localStorage.setItem('MAPBOX_TOKEN', urlToken);
     }
+    const savedToken = localStorage.getItem('MAPBOX_TOKEN');
+    
+    // 设置 Mapbox Token (若无则使用占位以启用开源瓦片底图)
+    mapboxgl.accessToken = savedToken || 'pk.eyJ1Ijoib3Blbi1zb3VyY2UiLCJhIjoiY2xwMG1hcGJveDAwMjJrb21hbXBveCJ9.open';
+
+    const currentMapStyle = savedToken ? DEFAULT_MAPBOX_STYLE : OPEN_DARK_STYLE;
 
     // 主题配色方案定义
     const THEMES = {
@@ -1001,7 +1031,7 @@
         },
         mapbox: {
           center: state.center,
-          style: DEFAULT_MAPBOX_STYLE,
+          style: (localStorage.getItem('MAPBOX_TOKEN') ? DEFAULT_MAPBOX_STYLE : OPEN_DARK_STYLE),
           zoom: state.zoom,
           pitch: state.pitch,
           bearing: state.bearing,
