@@ -1,7 +1,35 @@
 {
-  "name": "",
-  "version": "",
-  "dependencies": {
-    "request": "^2.83.0"
-  }
+  "name": "mapandbuilding",
+  "version": "1.1.0",
+  "description": "基于 ECharts-GL 与 Mapbox 的城市 3D 建筑与道路流光光效可视化系统（含高德地图 AOI/POI 数据抓取与 GeoJSON 转换）",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx serve . -p 8080",
+    "serve": "npx serve . -p 8080",
+    "crawl": "node index.js",
+    "crawl:help": "node index.js --help"
+  },
+  "keywords": [
+    "echarts",
+    "echarts-gl",
+    "mapbox",
+    "mapbox-gl",
+    "3d-map",
+    "geojson",
+    "data-visualization",
+    "amap",
+    "webgl",
+    "smart-city",
+    "urban-computing"
+  ],
+  "author": "hopkinson <1651690426@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hopkinson/mapandbuilding.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
 }

@@ -1,174 +1,1250 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 
 <head>
   <meta charset="utf-8">
-  <title>ECharts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Map & Building - 3D 城市建筑与道路流光可视化系统</title>
+
+  <!-- 样式库与字体 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mapbox-gl@0.43.0/dist/mapbox-gl.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    body,
-    html {
+    :root {
+      --bg-glass: rgba(13, 17, 23, 0.78);
+      --bg-glass-card: rgba(22, 27, 34, 0.85);
+      --border-glass: rgba(255, 255, 255, 0.12);
+      --border-focus: rgba(0, 240, 255, 0.5);
+      --primary: #00f0ff;
+      --primary-glow: rgba(0, 240, 255, 0.35);
+      --accent: #ff007f;
+      --accent-gold: #ffd700;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --panel-width: 340px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    html,
+    body {
       width: 100%;
       height: 100%;
       overflow: hidden;
+      background: #06090e;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-main);
+      user-select: none;
     }
 
     #app {
-      overflow: hidden;
-      background: #fff;
-      width: 100%;
-      height: 100%;
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
 
     #map {
       width: 100%;
       height: 100%;
+      background: #000;
+    }
+
+    /* 顶部标题栏 */
+    .brand-badge {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+    }
+
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #fff, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* 右侧控制面板 HUD */
+    .hud-panel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      bottom: 20px;
+      width: var(--panel-width);
+      max-height: calc(100vh - 40px);
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-glass);
+      border-radius: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+    }
+
+    .hud-panel.collapsed {
+      transform: translateX(calc(100% + 30px));
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .hud-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-glass);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hud-header h3 {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .hud-close-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .hud-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 滚动条美化 */
+    .hud-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .hud-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* 控制面板组件样式 */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .group-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 主题预设按钮网格 */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .theme-btn {
+      background: var(--bg-glass-card);
+      border: 1px solid var(--border-glass);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .theme-btn:hover {
+      border-color: var(--primary);
+      background: rgba(0, 240, 255, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .theme-btn.active {
+      border-color: var(--primary);
+      background: rgba(0, 240, 255, 0.15);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .theme-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* 滑块与输入控件 */
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #c9d1d9;
+    }
+
+    .slider-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--primary);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--primary);
+      transition: transform 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* 开关 Toggle */
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #c9d1d9;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.2);
+      transition: .3s;
+      border-radius: 20px;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+      background-color: #0d1117;
+    }
+
+    /* 快捷视角按钮 */
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .view-btn {
+      background: var(--bg-glass-card);
+      border: 1px solid var(--border-glass);
+      color: var(--text-main);
+      padding: 7px 4px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .view-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* 统计信息与卡片 */
+    .stats-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-glass);
+      border-radius: 10px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* 上传与自定义配置按钮 */
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(255, 0, 127, 0.15));
+      border: 1px solid var(--border-glass);
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    /* 浮动打开按钮 */
+    .hud-toggle-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 99;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glass);
+      color: var(--primary);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .hud-toggle-btn:hover {
+      transform: scale(1.05);
+      border-color: var(--primary);
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    /* 全局加载遮罩 */
+    .loading-mask {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #06090e;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    .loading-mask.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .cyber-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(0, 240, 255, 0.1);
+      border-top-color: var(--primary);
+      border-right-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--primary);
+      letter-spacing: 1.5px;
+    }
+
+    /* Toast 提示 */
+    .toast {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-glass-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-focus);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 999;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* 自定义文件选择框隐藏 */
+    #fileInput {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --panel-width: calc(100vw - 40px);
+      }
+      .brand-badge {
+        padding: 8px 12px;
+      }
     }
   </style>
-  <link href="https://cdn.bootcss.com/normalize/8.0.0/normalize.min.css" rel="stylesheet">
-  <link href="https://cdn.bootcss.com/mapbox-gl/0.43.0/mapbox-gl.css" rel="stylesheet">
 </head>
 
 <body>
   <div id="app">
+    <!-- 顶部状态栏 -->
+    <div class="brand-badge">
+      <div class="brand-logo">3D</div>
+      <div>
+        <div class="brand-title">Map & Building</div>
+        <div class="brand-status">
+          <span class="status-dot"></span>
+          <span id="locationText">Guangzhou Nansha</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD 打开悬浮按钮 -->
+    <button class="hud-toggle-btn" id="hudOpenBtn" title="打开控制面板">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+
+    <!-- 右侧控制面板 HUD -->
+    <div class="hud-panel" id="hudPanel">
+      <div class="hud-header">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          可视化控制中心
+        </h3>
+        <button class="hud-close-btn" id="hudCloseBtn" title="收起面板">✕</button>
+      </div>
+
+      <div class="hud-body">
+        <!-- 主题预设 -->
+        <div class="control-group">
+          <div class="group-title">
+            <span>🎨 主题配色</span>
+          </div>
+          <div class="theme-grid">
+            <button class="theme-btn active" data-theme="cyberpunk">
+              <span class="theme-dot" style="background: #ff007f; box-shadow: 0 0 8px #ff007f;"></span>
+              赛博朋克
+            </button>
+            <button class="theme-btn" data-theme="darktech">
+              <span class="theme-dot" style="background: #00f0ff; box-shadow: 0 0 8px #00f0ff;"></span>
+              暗黑科技
+            </button>
+            <button class="theme-btn" data-theme="gold">
+              <span class="theme-dot" style="background: #ffd700; box-shadow: 0 0 8px #ffd700;"></span>
+              黄金之城
+            </button>
+            <button class="theme-btn" data-theme="sunset">
+              <span class="theme-dot" style="background: #ff5722; box-shadow: 0 0 8px #ff5722;"></span>
+              落日余晖
+            </button>
+          </div>
+        </div>
+
+        <!-- 3D 建筑控制 -->
+        <div class="control-group">
+          <div class="group-title">
+            <span>🏢 建筑模型 (3D Extrusion)</span>
+          </div>
+
+          <div class="switch-row">
+            <span>显示 3D 建筑</span>
+            <label class="switch">
+              <input type="checkbox" id="toggleBuildings" checked>
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>高度缩放倍率</span>
+              <span class="slider-val" id="heightVal">1.0x</span>
+            </div>
+            <input type="range" id="heightSlider" min="0.2" max="3.0" step="0.1" value="1.0">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>金属质感 (Metalness)</span>
+              <span class="slider-val" id="metalVal">0.9</span>
+            </div>
+            <input type="range" id="metalSlider" min="0" max="1" step="0.05" value="0.9">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>粗糙度 (Roughness)</span>
+              <span class="slider-val" id="roughVal">0.2</span>
+            </div>
+            <input type="range" id="roughSlider" min="0" max="1" step="0.05" value="0.2">
+          </div>
+        </div>
+
+        <!-- 道路流光控制 -->
+        <div class="control-group">
+          <div class="group-title">
+            <span>🚗 道路流光 (Lines 3D)</span>
+          </div>
+
+          <div class="switch-row">
+            <span>显示道路流光</span>
+            <label class="switch">
+              <input type="checkbox" id="toggleRoads" checked>
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>流动速度</span>
+              <span class="slider-val" id="speedVal">5.0</span>
+            </div>
+            <input type="range" id="speedSlider" min="1" max="20" step="0.5" value="5.0">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>尾迹长度</span>
+              <span class="slider-val" id="trailVal">0.4</span>
+            </div>
+            <input type="range" id="trailSlider" min="0.1" max="0.9" step="0.05" value="0.4">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span>流光线宽</span>
+              <span class="slider-val" id="lineWidthVal">0.1</span>
+            </div>
+            <input type="range" id="lineWidthSlider" min="0.05" max="1.5" step="0.05" value="0.1">
+          </div>
+        </div>
+
+        <!-- 视角与巡航 -->
+        <div class="control-group">
+          <div class="group-title">
+            <span>🎥 镜头视角</span>
+          </div>
+
+          <div class="switch-row">
+            <span>360° 自动巡航旋转</span>
+            <label class="switch">
+              <input type="checkbox" id="toggleRotate" checked>
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="btn-row">
+            <button class="view-btn" id="viewPerspective">斜角全景</button>
+            <button class="view-btn" id="viewTopDown">正俯视</button>
+            <button class="view-btn" id="viewStreet">低空街景</button>
+          </div>
+        </div>
+
+        <!-- 数据状态卡片 -->
+        <div class="control-group">
+          <div class="group-title">
+            <span>📊 场景数据统计</span>
+          </div>
+          <div class="stats-card">
+            <div class="stat-item">
+              <div class="stat-label">建筑多边形</div>
+              <div class="stat-value" id="statBuildings">--</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">道路线段</div>
+              <div class="stat-value" id="statRoads">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 动态导入与配置 -->
+        <div class="control-group">
+          <input type="file" id="fileInput" accept=".geojson,.json">
+          <button class="action-btn" id="importBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            导入自定义 GeoJSON
+          </button>
+          <button class="action-btn" id="tokenBtn" style="background: rgba(255, 255, 255, 0.08); margin-top: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            配置 Mapbox Token
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 地图容器 -->
     <div id="map"></div>
+
+    <!-- 加载中遮罩 -->
+    <div class="loading-mask" id="loadingMask">
+      <div class="cyber-spinner"></div>
+      <div class="loading-text" id="loadingText">INITIALIZING 3D ENGINE...</div>
+    </div>
+
+    <!-- 消息浮条 -->
+    <div class="toast" id="toast"></div>
   </div>
-  <script src="https://cdn.bootcss.com/mapbox-gl/0.43.0/mapbox-gl.js" charset="utf-8"></script>
-  <script src="https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js" charset="utf-8"></script>
-  <!-- 引入 echarts.js -->
-  <script src="https://cdn.bootcss.com/echarts/4.0.4/echarts.min.js"></script>
-  <script src="./echarts-gl.min.js" charset="utf-8"></script>
-  <script type="text/javascript">
-    // mapbox TOKEN
-    mapboxgl.accessToken = 'pk.eyJ1IjoiamFzb25obyIsImEiOiJjamU1Yjh6YTAyeXczMnFwOTl1aGRwNnZmIn0.cSgyLOqrlhlNPPpZAtXO7g'
-    var myChart = echarts.init(document.getElementById("map"))
-    $.getJSON("map.geojson", function(buildingsGeoJSON) {
-      // 注册可用的地图
-      echarts.registerMap('buildings', buildingsGeoJSON)
-      // 地图区域的数据
-      var regionsData = buildingsGeoJSON.features.map(function(feature) {
+
+  <!-- 脚本引入：使用高可用稳定 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/mapbox-gl@0.43.0/dist/mapbox-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@4.2.1/dist/echarts.min.js"></script>
+  <script src="./echarts-gl.min.js"></script>
+
+  <script>
+    // ==========================================
+    // 1. 全局配置与状态初始化
+    // ==========================================
+    // 提示：请在下方填入你的 Mapbox 公钥 Access Token (可在 https://account.mapbox.com/ 免费获取)
+    const DEFAULT_MAPBOX_TOKEN = 'YOUR_MAPBOX_ACCESS_TOKEN';
+    const DEFAULT_MAPBOX_STYLE = 'mapbox://styles/jasonho/cje7u4sylbj7f2sn31bxq55t6';
+
+    const savedToken = localStorage.getItem('MAPBOX_TOKEN');
+    if (savedToken) {
+      mapboxgl.accessToken = savedToken;
+    } else if (DEFAULT_MAPBOX_TOKEN && DEFAULT_MAPBOX_TOKEN !== 'YOUR_MAPBOX_ACCESS_TOKEN') {
+      mapboxgl.accessToken = DEFAULT_MAPBOX_TOKEN;
+    }
+
+    // 主题配色方案定义
+    const THEMES = {
+      cyberpunk: {
+        name: '赛博朋克',
+        buildingColor: ['rgb(138, 43, 83)', 'rgb(255, 0, 127)'],
+        roadColor: 'rgb(0, 240, 255)',
+        groundColor: '#0a0d14',
+        metalness: 0.9,
+        roughness: 0.2
+      },
+      darktech: {
+        name: '暗黑科技',
+        buildingColor: ['rgb(10, 40, 80)', 'rgb(0, 150, 255)'],
+        roadColor: 'rgb(0, 255, 180)',
+        groundColor: '#050b14',
+        metalness: 0.8,
+        roughness: 0.3
+      },
+      gold: {
+        name: '黄金之城',
+        buildingColor: ['rgb(120, 80, 20)', 'rgb(255, 190, 0)'],
+        roadColor: 'rgb(255, 220, 100)',
+        groundColor: '#140f08',
+        metalness: 0.95,
+        roughness: 0.15
+      },
+      sunset: {
+        name: '落日余晖',
+        buildingColor: ['rgb(100, 30, 60)', 'rgb(255, 80, 40)'],
+        roadColor: 'rgb(255, 200, 50)',
+        groundColor: '#12080a',
+        metalness: 0.85,
+        roughness: 0.25
+      }
+    };
+
+    let currentThemeKey = 'cyberpunk';
+    let buildingsGeoJSON = null;
+    let roadsJSON = null;
+    let myChart = null;
+
+    // 当前可调参数状态
+    const state = {
+      showBuildings: true,
+      showRoads: true,
+      heightMultiplier: 1.0,
+      metalness: 0.9,
+      roughness: 0.2,
+      trailSpeed: 5.0,
+      trailLength: 0.4,
+      lineWidth: 0.1,
+      autoRotate: true,
+      center: [113.524173, 22.801624],
+      zoom: 13,
+      pitch: 100,
+      bearing: -10
+    };
+
+    // ==========================================
+    // 2. DOM 元素获取
+    // ==========================================
+    const loadingMask = document.getElementById('loadingMask');
+    const loadingText = document.getElementById('loadingText');
+    const toast = document.getElementById('toast');
+    const hudPanel = document.getElementById('hudPanel');
+    const hudOpenBtn = document.getElementById('hudOpenBtn');
+    const hudCloseBtn = document.getElementById('hudCloseBtn');
+
+    const toggleBuildings = document.getElementById('toggleBuildings');
+    const heightSlider = document.getElementById('heightSlider');
+    const heightVal = document.getElementById('heightVal');
+    const metalSlider = document.getElementById('metalSlider');
+    const metalVal = document.getElementById('metalVal');
+    const roughSlider = document.getElementById('roughSlider');
+    const roughVal = document.getElementById('roughVal');
+
+    const toggleRoads = document.getElementById('toggleRoads');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    const trailSlider = document.getElementById('trailSlider');
+    const trailVal = document.getElementById('trailVal');
+    const lineWidthSlider = document.getElementById('lineWidthSlider');
+    const lineWidthVal = document.getElementById('lineWidthVal');
+
+    const toggleRotate = document.getElementById('toggleRotate');
+    const statBuildings = document.getElementById('statBuildings');
+    const statRoads = document.getElementById('statRoads');
+    const importBtn = document.getElementById('importBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    // ==========================================
+    // 3. UI 交互与消息提示辅助函数
+    // ==========================================
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    function updateLoading(text) {
+      if (text) {
+        loadingText.textContent = text;
+        loadingMask.classList.remove('hidden');
+      } else {
+        loadingMask.classList.add('hidden');
+      }
+    }
+
+    // ==========================================
+    // 4. ECharts-GL 渲染核心
+    // ==========================================
+    function renderChart() {
+      if (!buildingsGeoJSON || !myChart) return;
+
+      const theme = THEMES[currentThemeKey];
+
+      // 注册/更新地图
+      echarts.registerMap('buildings', buildingsGeoJSON);
+
+      // 处理建筑要素数据
+      const regionsData = buildingsGeoJSON.features.map(feature => {
+        const baseHeight = (feature.properties && feature.properties.height) || (Math.random() * 800 + 200);
         return {
-          name: feature.properties.name,
+          name: (feature.properties && feature.properties.name) || 'Building',
           value: Math.random(),
-          height: Math.random() * 1000,
-          label: feature.properties.name
+          height: baseHeight * state.heightMultiplier,
+          label: (feature.properties && feature.properties.name) || ''
         };
-      })
-      $.getJSON("road.geojson", function(roadsJSON) {
-        // console.log(roadsJSON)
-        var taxiRoutes = roadsJSON.map(item => {
-          let coor = item.toString().split(/[_|]/)
+      });
+
+      // 处理道路轨迹数据
+      let taxiRoutes = [];
+      if (roadsJSON && Array.isArray(roadsJSON)) {
+        taxiRoutes = roadsJSON.map(item => {
+          const coor = item.toString().split(/[_|]/);
           return {
             lineStyle: {},
-            coords: coor.map(i => i.split(','))
+            coords: coor.map(i => i.split(',').map(Number).filter(n => !isNaN(n)))
+          };
+        }).filter(route => route.coords.length >= 2);
+      }
+
+      // 组装系列数据
+      const series = [];
+
+      // 1. 道路流光系列 (Lines3D)
+      if (state.showRoads && taxiRoutes.length > 0) {
+        series.push({
+          type: 'lines3D',
+          coordinateSystem: 'mapbox',
+          effect: {
+            show: true,
+            constantSpeed: state.trailSpeed,
+            trailWidth: 2,
+            trailLength: state.trailLength,
+            trailOpacity: 1,
+            spotIntensity: 10
+          },
+          blendMode: 'lighter',
+          polyline: true,
+          lineStyle: {
+            width: state.lineWidth,
+            color: theme.roadColor,
+            opacity: 0.15
+          },
+          data: taxiRoutes
+        });
+      }
+
+      // 2. 3D 建筑模型系列 (Map3D)
+      if (state.showBuildings) {
+        series.push({
+          type: 'map3D',
+          map: 'buildings',
+          data: regionsData,
+          shading: 'realistic',
+          instancing: true,
+          coordinateSystem: 'mapbox',
+          silent: true,
+          realisticMaterial: {
+            metalness: state.metalness,
+            roughness: state.roughness
+          },
+          groundPlane: {
+            show: true,
+            color: theme.groundColor
+          },
+          boxWidth: 200,
+          boxHeight: 1,
+          viewControl: {
+            minBeta: -360,
+            maxBeta: 360,
+            autoRotate: state.autoRotate
           }
-        })
-        console.log(taxiRoutes)
-        var echartsOption = {
-          visualMap: {
-            show: false,
-            min: 0.4,
-            max: 1,
-            inRange: {
-              color: ['rgb(138, 43, 83)']
-            }
-          },
-          mapbox: {
-            center: [113.524173, 22.801624],
-            style: 'mapbox://styles/jasonho/cje7u4sylbj7f2sn31bxq55t6',
-            zoom: 13,
-            pitch: 100,
-            bearing: -10,
-            dragRotate: false,
-            trackResize: true,
-            attributionControl: false,
-            postEffect: {
+        });
+      }
+
+      const option = {
+        visualMap: {
+          show: false,
+          min: 0.4,
+          max: 1,
+          inRange: {
+            color: theme.buildingColor
+          }
+        },
+        mapbox: {
+          center: state.center,
+          style: DEFAULT_MAPBOX_STYLE,
+          zoom: state.zoom,
+          pitch: state.pitch,
+          bearing: state.bearing,
+          dragRotate: true,
+          trackResize: true,
+          attributionControl: false,
+          postEffect: {
+            enable: true,
+            SSAO: {
               enable: true,
-              SSAO: {
-                enable: true,
-                intensity: 1.3,
-                radius: 5
-              },
-              screenSpaceReflection: {
-                enable: false
-              }
+              intensity: 1.3,
+              radius: 5
             },
-            groundPlane: {
-              show: true,
-              color: '#333'
-            },
-            light: {
-              main: {
-                intensity: 6,
-                shadow: true,
-                shadowQuality: 'high',
-                alpha: 30
-              },
-              ambient: {
-                intensity: 0
-              },
-              ambientCubemap: {
-                texture: './ambientCubemapTexture.hdr',
-                exposure: 2,
-                diffuseIntensity: 1,
-                specularIntensity: 2
-              }
+            screenSpaceReflection: {
+              enable: false
             }
           },
-          // 系列列表
-          series: [{
-            type: 'lines3D',
-            coordinateSystem: 'mapbox',
-            effect: {
-              show: true,
-              constantSpeed: 5,
-              trailWidth: 2,
-              trailLength: 0.4,
-              trailOpacity: 1,
-              spotIntensity: 10
+          groundPlane: {
+            show: true,
+            color: theme.groundColor
+          },
+          light: {
+            main: {
+              intensity: 6,
+              shadow: true,
+              shadowQuality: 'high',
+              alpha: 30
             },
-            blendMode: 'lighter',
-            polyline: true,
-            lineStyle: {
-              width: 0.1,
-              color: 'rgb(1, 166, 192)',
-              opacity: 0.
+            ambient: {
+              intensity: 0.1
             },
-            data: taxiRoutes
-          }, {
-            type: 'map3D',
-            map: 'buildings', // registerMap注册
-            data: regionsData,
-            shading: 'realistic',
-            instancing: true,
-            // ====
-            coordinateSystem: 'mapbox',
-            silent: true,
-            realisticMaterial: {
-              metalness: 1,
-              roughness: 0.2,
-            },
-            groundPlane: {
-              show: true,
-              color: '#333'
-            },
-            boxWidth: 200,
-            boxHeight: 1,
-            viewControl: {
-              minBeta: -360,
-              maxBeta: 360,
-              autoRotate: true
-            },
-          }]
+            ambientCubemap: {
+              texture: './ambientCubemapTexture.hdr',
+              exposure: 2,
+              diffuseIntensity: 1,
+              specularIntensity: 2
+            }
+          }
+        },
+        series: series
+      };
+
+      myChart.setOption(option, true);
+    }
+
+    // ==========================================
+    // 5. 数据加载与启动流程
+    // ==========================================
+    async function initApp() {
+      updateLoading('LOADING GEOJSON DATA...');
+
+      myChart = echarts.init(document.getElementById('map'));
+
+      window.addEventListener('resize', () => {
+        if (myChart) myChart.resize();
+      });
+
+      try {
+        const [mapRes, roadRes] = await Promise.all([
+          fetch('map.geojson'),
+          fetch('road.geojson')
+        ]);
+
+        if (!mapRes.ok) throw new Error('无法读取 map.geojson');
+        buildingsGeoJSON = await mapRes.json();
+
+        if (roadRes.ok) {
+          roadsJSON = await roadRes.json();
         }
-        // 使用刚指定的配置项和数据显示图表
-        myChart.setOption(echartsOption)
-      })
-    })
+
+        // 更新统计显示
+        statBuildings.textContent = buildingsGeoJSON.features ? buildingsGeoJSON.features.length : '0';
+        statRoads.textContent = Array.isArray(roadsJSON) ? roadsJSON.length : '0';
+
+        renderChart();
+        updateLoading(null);
+        showToast('3D 场景加载就绪');
+      } catch (err) {
+        console.error('初始化数据加载失败:', err);
+        updateLoading('LOAD FAILED: ' + err.message);
+        showToast('加载数据出错，请确保已启动本地 HTTP 服务');
+      }
+    }
+
+    // ==========================================
+    // 6. HUD 控制面板事件监听
+    // ==========================================
+
+    // 面板折叠与展开
+    hudOpenBtn.addEventListener('click', () => {
+      hudPanel.classList.remove('collapsed');
+      hudOpenBtn.style.display = 'none';
+    });
+
+    hudCloseBtn.addEventListener('click', () => {
+      hudPanel.classList.add('collapsed');
+      hudOpenBtn.style.display = 'flex';
+    });
+
+    // 主题切换
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        const targetBtn = e.currentTarget;
+        targetBtn.classList.add('active');
+        currentThemeKey = targetBtn.dataset.theme;
+        const theme = THEMES[currentThemeKey];
+        state.metalness = theme.metalness;
+        state.roughness = theme.roughness;
+        metalSlider.value = state.metalness;
+        metalVal.textContent = state.metalness;
+        roughSlider.value = state.roughness;
+        roughVal.textContent = state.roughness;
+
+        renderChart();
+        showToast(`已切换主题: ${theme.name}`);
+      });
+    });
+
+    // 建筑参数控件
+    toggleBuildings.addEventListener('change', (e) => {
+      state.showBuildings = e.target.checked;
+      renderChart();
+    });
+
+    heightSlider.addEventListener('input', (e) => {
+      state.heightMultiplier = parseFloat(e.target.value);
+      heightVal.textContent = state.heightMultiplier.toFixed(1) + 'x';
+      renderChart();
+    });
+
+    metalSlider.addEventListener('input', (e) => {
+      state.metalness = parseFloat(e.target.value);
+      metalVal.textContent = state.metalness.toFixed(2);
+      renderChart();
+    });
+
+    roughSlider.addEventListener('input', (e) => {
+      state.roughness = parseFloat(e.target.value);
+      roughVal.textContent = state.roughness.toFixed(2);
+      renderChart();
+    });
+
+    // 道路参数控件
+    toggleRoads.addEventListener('change', (e) => {
+      state.showRoads = e.target.checked;
+      renderChart();
+    });
+
+    speedSlider.addEventListener('input', (e) => {
+      state.trailSpeed = parseFloat(e.target.value);
+      speedVal.textContent = state.trailSpeed.toFixed(1);
+      renderChart();
+    });
+
+    trailSlider.addEventListener('input', (e) => {
+      state.trailLength = parseFloat(e.target.value);
+      trailVal.textContent = state.trailLength.toFixed(2);
+      renderChart();
+    });
+
+    lineWidthSlider.addEventListener('input', (e) => {
+      state.lineWidth = parseFloat(e.target.value);
+      lineWidthVal.textContent = state.lineWidth.toFixed(2);
+      renderChart();
+    });
+
+    // 自动巡航旋转
+    toggleRotate.addEventListener('change', (e) => {
+      state.autoRotate = e.target.checked;
+      renderChart();
+    });
+
+    // 视角预设
+    document.getElementById('viewPerspective').addEventListener('click', () => {
+      state.pitch = 100;
+      state.bearing = -10;
+      state.zoom = 13;
+      renderChart();
+      showToast('视角已切换至: 斜角全景');
+    });
+
+    document.getElementById('viewTopDown').addEventListener('click', () => {
+      state.pitch = 0;
+      state.bearing = 0;
+      state.zoom = 13.5;
+      renderChart();
+      showToast('视角已切换至: 正俯视全景');
+    });
+
+    document.getElementById('viewStreet').addEventListener('click', () => {
+      state.pitch = 85;
+      state.bearing = 45;
+      state.zoom = 15;
+      renderChart();
+      showToast('视角已切换至: 低空街景');
+    });
+
+    // 自定义 GeoJSON 导入
+    importBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (parsed.type === 'FeatureCollection') {
+            buildingsGeoJSON = parsed;
+            statBuildings.textContent = parsed.features ? parsed.features.length : '0';
+            showToast(`成功导入自定义建筑 GeoJSON (${parsed.features.length} 处要素)`);
+            renderChart();
+          } else if (Array.isArray(parsed)) {
+            roadsJSON = parsed;
+            statRoads.textContent = parsed.length;
+            showToast(`成功导入自定义道路数据 (${parsed.length} 条路线)`);
+            renderChart();
+          } else {
+            showToast('未识别的 GeoJSON 结构');
+          }
+        } catch (err) {
+          showToast('GeoJSON 解析失败: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // 配置 Mapbox Access Token
+    document.getElementById('tokenBtn').addEventListener('click', () => {
+      const current = localStorage.getItem('MAPBOX_TOKEN') || '';
+      const input = prompt('请输入你的 Mapbox Access Token (pk....):', current);
+      if (input !== null && input.trim() !== '') {
+        localStorage.setItem('MAPBOX_TOKEN', input.trim());
+        mapboxgl.accessToken = input.trim();
+        showToast('Mapbox Token 已更新，正在重新加载场景...');
+        renderChart();
+      }
+    });
+
+    // 启动初始化
+    initApp();
   </script>
 </body>
 
